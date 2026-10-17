@@ -1,0 +1,4 @@
+import { z } from 'zod'
+
+export const projectQuerySchema = z.object({ search: z.string().trim().max(100).optional(), category: z.string().trim().max(100).optional(), page: z.coerce.number().int().positive().default(1), limit: z.coerce.number().int().positive().max(50).default(20) })
+export const projectInputSchema = z.object({ title: z.string().trim().min(3).max(160), slug: z.string().trim().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/), description: z.string().trim().min(10).max(10000), category: z.string().trim().min(2).max(100), technologies: z.array(z.string().trim().min(1).max(50)).max(20), price: z.number().nonnegative().max(10000000), thumbnailUrl: z.string().url().optional(), compatibility: z.array(z.string().trim().max(100)).max(20).default([]), kitContents: z.array(z.string().trim().max(200)).max(30).default([]) })

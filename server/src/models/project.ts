@@ -1,0 +1,5 @@
+import { Schema, model, type InferSchemaType } from 'mongoose'
+
+const projectSchema = new Schema({ title: { type: String, required: true, trim: true, maxlength: 160 }, slug: { type: String, required: true, unique: true, index: true }, description: { type: String, required: true, maxlength: 10000 }, category: { type: String, required: true, index: true }, technologies: { type: [String], default: [] }, price: { type: Number, required: true, min: 0 }, currency: { type: String, default: 'INR' }, publicationStatus: { type: String, enum: ['draft', 'published', 'archived'], default: 'draft', index: true }, thumbnailUrl: { type: String }, compatibility: { type: [String], default: [] }, kitContents: { type: [String], default: [] }, privateFiles: [{ key: { type: String, required: true }, filename: { type: String, required: true }, contentType: String, sizeBytes: Number }] }, { timestamps: true })
+export type Project = InferSchemaType<typeof projectSchema>
+export const ProjectModel = model('Project', projectSchema)
