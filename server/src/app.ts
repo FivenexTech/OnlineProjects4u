@@ -10,6 +10,7 @@ import { commerceRouter } from './routes/commerce.js'
 import { healthRouter } from './routes/health.js'
 import { projectsRouter } from './routes/projects.js'
 import { supportRouter } from './routes/support.js'
+import { customProjectRequestsRouter } from './routes/custom-project-requests.js'
 
 export function createApp() {
   const app = express()
@@ -22,6 +23,7 @@ export function createApp() {
   app.use('/api/auth', authRouter)
   app.use('/api/projects', projectsRouter)
   app.use('/api/support', supportRouter)
+  app.use('/api/project-requests', customProjectRequestsRouter)
   app.use('/api', commerceRouter)
   app.use('/api/admin', adminRouter)
   app.use(notFoundHandler)

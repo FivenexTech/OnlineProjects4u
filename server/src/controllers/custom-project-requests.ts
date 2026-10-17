@@ -1,0 +1,10 @@
+import type { RequestHandler } from 'express'
+import { CustomProjectRequestModel } from '../models/custom-project-request.js'
+import { AppError } from '../middleware/errors.js'
+import { buildProjectProposal } from '../services/project-proposal.js'
+
+export const createRequest: RequestHandler = async (request, response, next) => { try { const proposal = buildProjectProposal(request.body); const item = await CustomProjectRequestModel.create({ ...request.body, user: request.auth?.userId, proposal }); response.status(201).json({ data: { id: item.id, reference: `OP4U-${item.id.slice(-8).toUpperCase()}`, status: item.status, proposal: item.proposal } }) } catch (error) { next(error) } }
+export const listOwnRequests: RequestHandler = async (request, response, next) => { try { const items = await CustomProjectRequestModel.find({ user: request.auth?.userId }).sort({ createdAt: -1 }).select('-adminNotes').lean(); response.json({ data: items }) } catch (error) { next(error) } }
+export const getOwnRequest: RequestHandler = async (request, response, next) => { try { const item = await CustomProjectRequestModel.findOne({ _id: request.params.id, user: request.auth?.userId }).select('-adminNotes').lean(); if (!item) throw new AppError(404, 'Project request not found', 'REQUEST_NOT_FOUND'); response.json({ data: item }) } catch (error) { next(error) } }
+export const listAllRequests: RequestHandler = async (_request, response, next) => { try { const items = await CustomProjectRequestModel.find().sort({ createdAt: -1 }).select('+adminNotes').populate('user', 'name email').lean(); response.json({ data: items }) } catch (error) { next(error) } }
+export const reviewRequest: RequestHandler = async (request, response, next) => { try { const item = await CustomProjectRequestModel.findByIdAndUpdate(request.params.id, { $set: request.body }, { new: true, runValidators: true }).select('+adminNotes').lean(); if (!item) throw new AppError(404, 'Project request not found', 'REQUEST_NOT_FOUND'); response.json({ data: item }) } catch (error) { next(error) } }

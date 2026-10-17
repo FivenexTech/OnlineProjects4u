@@ -1,0 +1,6 @@
+import { z } from 'zod'
+
+export const customProjectRequestSchema = z.object({
+  title: z.string().trim().min(3).max(160), problem: z.string().trim().min(10).max(5000), features: z.string().trim().min(10).max(5000), academicLevel: z.string().trim().min(2).max(80), purpose: z.string().trim().min(2).max(160), projectType: z.string().trim().min(2).max(80), deadline: z.coerce.date().optional(), budget: z.string().trim().min(2).max(80), stack: z.object({ frontend: z.string().trim().min(1).max(80), backend: z.string().trim().min(1).max(80), database: z.string().trim().min(1).max(80), optional: z.array(z.string().trim().max(80)).max(10).default([]), recommend: z.boolean().default(true) }),
+})
+export const requestReviewSchema = z.object({ status: z.enum(['submitted', 'under_review', 'clarification_needed', 'quoted', 'accepted', 'rejected']).optional(), adminNotes: z.string().trim().max(5000).optional(), quoteAmount: z.number().nonnegative().optional() }).refine((value) => value.status || value.adminNotes || value.quoteAmount !== undefined, 'At least one review field is required')

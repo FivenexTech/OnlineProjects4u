@@ -1,0 +1,8 @@
+type BuilderInput = { title: string; problem: string; features: string; projectType: string; budget: string; stack: { frontend: string; backend: string; database: string; optional: string[]; recommend: boolean } }
+export function buildProjectProposal(input: BuilderInput) {
+  const combined = `${input.features} ${input.projectType} ${input.stack.optional.join(' ')}`.toLowerCase()
+  const advanced = /ai|machine learning|cloud|real-time|computer vision/.test(combined)
+  const complexity = advanced ? 'Advanced' : input.projectType === 'Desktop application' ? 'Intermediate' : 'Intermediate'
+  const timeframe = advanced ? '6–8 weeks' : '4–6 weeks'
+  return { summary: `${input.title} is an academic ${input.projectType.toLowerCase()} focused on ${input.problem}.`, modules: ['Authentication and user roles', 'Core workflow and dashboard', 'Data storage and validation', 'Documentation and setup guide'], reasoning: input.stack.recommend ? `The selected ${input.stack.frontend}, ${input.stack.backend} and ${input.stack.database} combination is a practical starting point for this scope.` : 'The proposal follows the technology preferences supplied in the request.', complexity, timeframe, priceRange: input.budget === 'Not sure yet' ? 'Quote required after clarification' : input.budget, assumptions: ['Final scope and integrations require clarification.', 'Any private data, credentials and production deployment are outside this initial estimate.'] }
+}

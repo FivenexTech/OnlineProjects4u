@@ -15,6 +15,8 @@ Open the local URL printed by Vite. For a production check:
 npm run build
 ```
 
+To connect the login and registration forms to the configured API, create `client/.env.local` from `.env.example` and set `VITE_API_URL` to the API URL. Do not place MongoDB, JWT, Google client secrets, email keys, or other provider secrets in the client environment.
+
 ## Stack
 
 - React 19, TypeScript, and Vite
@@ -26,3 +28,5 @@ npm run build
 ## Pages
 
 Home, Browse Projects, Project Details, About Us, Contact / FAQ, and Cart are available through the app navigation. Project data lives in `src/data.ts` so it can later be replaced by an API without changing the UI components.
+
+The `/build` route contains a rules-based project idea wizard. It saves drafts locally and clearly labels its proposal preview as non-AI; authenticated MongoDB request submission will be connected in a later client integration stage.
