@@ -5,31 +5,36 @@ import { UserModel } from '../models/user.js'
 import { env } from '../config/env.js'
 import { AppError } from '../middleware/errors.js'
 import { OAuth2Client } from 'google-auth-library'
-import { randomBytes, createHash } from 'node:crypto'
-import { EmailOtpModel } from '../models/email-otp.js'
+import { randomBytes } from 'node:crypto'
+import { issueVerificationOtp, verifyEmailOtp } from '../services/email-verification.js'
+import { createSession, revokeSession, sessionCookie, sessionCookieName } from '../services/sessions.js'
 
 function issueToken(userId: string, role: 'student' | 'admin'): string { return jwt.sign({ role }, env.JWT_SECRET, { subject: userId, expiresIn: env.JWT_EXPIRES_IN as jwt.SignOptions['expiresIn'] }) }
 
 export const register: RequestHandler = async (request, response, next) => {
   try {
-    const existing = await UserModel.exists({ email: request.body.email })
-    if (existing) throw new AppError(409, 'An account with this email already exists', 'EMAIL_IN_USE')
-    const passwordHash = await bcrypt.hash(request.body.password, 12)
-    const user = await UserModel.create({ name: request.body.name, email: request.body.email, passwordHash, role: 'student' })
-    response.status(201).json({ data: { user: { id: user.id, name: user.name, email: user.email, role: user.role, emailVerified: false }, token: issueToken(user.id, user.role) } })
-  } catch (error) { next(error) }
+    const email = request.body.email
+    const user = await UserModel.findOne({ email })
+    await issueVerificationOtp(user?.id, email)
+    response.status(202).json({ data: { verificationRequired: true } })
+  } catch (error) {
+    if (error instanceof AppError && error.code === 'OTP_COOLDOWN') return response.status(202).json({ data: { verificationRequired: true } })
+    next(error)
+  }
 }
 
 export const login: RequestHandler = async (request, response, next) => {
   try {
-    const user = await UserModel.findOne({ email: request.body.email }).select('+passwordHash')
-    if (!user || !(await bcrypt.compare(request.body.password, user.passwordHash))) throw new AppError(401, 'Invalid email or password', 'AUTH_INVALID')
-    response.json({ data: { user: { id: user.id, name: user.name, email: user.email, role: user.role, emailVerified: Boolean(user.emailVerifiedAt) }, token: issueToken(user.id, user.role) } })
+    throw new AppError(410, 'Password login has been replaced by email verification', 'PASSWORD_LOGIN_DISABLED')
   } catch (error) { next(error) }
 }
 
 export const me: RequestHandler = async (request, response, next) => {
-  try { const user = await UserModel.findById(request.auth?.userId); if (!user) throw new AppError(404, 'Account not found', 'USER_NOT_FOUND'); response.json({ data: { id: user.id, name: user.name, email: user.email, role: user.role, emailVerified: Boolean(user.emailVerifiedAt) } }) } catch (error) { next(error) }
+  try { const user = await UserModel.findById(request.auth?.userId); if (!user) throw new AppError(404, 'Account not found', 'USER_NOT_FOUND'); response.json({ data: { id: user.id, name: user.name, email: user.email, phone: user.phone ?? '', role: user.role, emailVerified: Boolean(user.emailVerifiedAt), createdAt: user.createdAt } }) } catch (error) { next(error) }
+}
+
+export const updateMe: RequestHandler = async (request, response, next) => {
+  try { const user = await UserModel.findByIdAndUpdate(request.auth?.userId, { $set: request.body }, { new: true, runValidators: true }).lean(); if (!user) throw new AppError(404, 'Account not found', 'USER_NOT_FOUND'); response.json({ data: { id: user._id.toString(), name: user.name, email: user.email, phone: user.phone ?? '', role: user.role, emailVerified: Boolean(user.emailVerifiedAt), createdAt: user.createdAt } }) } catch (error) { next(error) }
 }
 
 export const googleLogin: RequestHandler = async (request, response, next) => {
@@ -41,18 +46,29 @@ export const googleLogin: RequestHandler = async (request, response, next) => {
     let user = await UserModel.findOne({ email: payload.email.toLowerCase() }).select('+passwordHash')
     if (!user) user = await UserModel.create({ name: payload.name?.trim() || 'OnlineProjects4U student', email: payload.email.toLowerCase(), passwordHash: await bcrypt.hash(randomBytes(32).toString('hex'), 12), googleSubject: payload.sub, role: 'student', emailVerifiedAt: new Date() })
     else if (!user.googleSubject) { user.googleSubject = payload.sub; user.emailVerifiedAt ??= new Date(); await user.save() }
-    response.json({ data: { user: { id: user.id, name: user.name, email: user.email, role: user.role, emailVerified: Boolean(user.emailVerifiedAt) }, token: issueToken(user.id, user.role) } })
+    const session = await createSession(user.id); response.setHeader('Set-Cookie', sessionCookie(session)); response.json({ data: { user: { id: user.id, name: user.name, email: user.email, role: user.role, emailVerified: true } } })
   } catch (error) { next(error) }
 }
 
-export const requestOtp: RequestHandler = async (_request, _response, next) => next(new AppError(501, 'Email delivery is not configured. Configure an approved email provider before requesting an OTP.', 'EMAIL_DELIVERY_NOT_CONFIGURED'))
+export const requestOtp: RequestHandler = async (request, response, next) => {
+  try {
+    const user = await UserModel.findOne({ email: request.body.email })
+    await issueVerificationOtp(user?.id, request.body.email)
+    response.status(202).json({ data: { message: 'If verification is required, a code has been sent.' } })
+  } catch (error) {
+    if (error instanceof AppError && error.code === 'OTP_COOLDOWN') return response.status(202).json({ data: { message: 'If verification is required, a code has been sent.' } })
+    next(error)
+  }
+}
 
 export const verifyOtp: RequestHandler = async (request, response, next) => {
   try {
-    const user = await UserModel.findOne({ email: request.body.email })
-    if (!user) throw new AppError(401, 'The OTP could not be verified', 'OTP_INVALID')
-    const otp = await EmailOtpModel.findOne({ user: user.id, purpose: request.body.purpose, consumedAt: null }).select('+codeHash')
-    if (!otp || otp.expiresAt < new Date() || otp.attempts >= 5 || createHash('sha256').update(request.body.code).digest('hex') !== otp.codeHash) { if (otp) { otp.attempts += 1; await otp.save() }; throw new AppError(401, 'The OTP could not be verified', 'OTP_INVALID') }
-    otp.consumedAt = new Date(); await otp.save(); user.emailVerifiedAt = new Date(); await user.save(); response.json({ data: { verified: true, token: issueToken(user.id, user.role) } })
+    await verifyEmailOtp(request.body.email, request.body.code)
+    let user = await UserModel.findOne({ email: request.body.email })
+    if (!user) user = await UserModel.create({ name: request.body.email.split('@')[0].slice(0, 100), email: request.body.email, role: 'student', emailVerifiedAt: new Date() })
+    else { user.emailVerifiedAt = new Date(); await user.save() }
+    const session = await createSession(user.id); response.setHeader('Set-Cookie', sessionCookie(session)); response.json({ data: { verified: true } })
   } catch (error) { next(error) }
 }
+
+export const logout: RequestHandler = async (request, response, next) => { try { const cookie = request.header('cookie')?.split(';').map((item) => item.trim()).find((item) => item.startsWith(`${sessionCookieName}=`))?.slice(sessionCookieName.length + 1); if (cookie) await revokeSession(cookie); response.setHeader('Set-Cookie', `${sessionCookieName}=; Max-Age=0; Path=/; HttpOnly; SameSite=Lax${env.COOKIE_SECURE ? '; Secure' : ''}`); response.status(204).send() } catch (error) { next(error) } }

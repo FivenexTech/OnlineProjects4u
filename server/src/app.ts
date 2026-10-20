@@ -16,7 +16,7 @@ export function createApp() {
   const app = express()
   app.disable('x-powered-by')
   app.use(helmet())
-  app.use(cors({ origin: env.CLIENT_ORIGIN, methods: ['GET', 'POST', 'PATCH'], allowedHeaders: ['Content-Type', 'Authorization'] }))
+  app.use(cors({ origin: [env.CLIENT_ORIGIN, env.ADMIN_ORIGIN], credentials: true, methods: ['GET', 'POST', 'PATCH', 'DELETE'], allowedHeaders: ['Content-Type', 'Authorization'] }))
   app.use(express.json({ limit: '100kb' }))
   app.use(pinoHttp({ redact: ['req.headers.authorization', 'req.headers.cookie'] }))
   app.use('/api/health', healthRouter)

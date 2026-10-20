@@ -1,4 +1,5 @@
 import type { RequestHandler } from 'express'
+import { OrderModel } from '../models/order.js'
 import { ProjectModel } from '../models/project.js'
 import { AppError } from '../middleware/errors.js'
 import { projectQuerySchema } from '../schemas/project.js'
@@ -20,4 +21,14 @@ export const getProject: RequestHandler = async (request, response, next) => {
 
 export const createProject: RequestHandler = async (request, response, next) => {
   try { const project = await ProjectModel.create(request.body); response.status(201).json({ data: project }) } catch (error) { next(error) }
+}
+
+export const downloadProject: RequestHandler = async (request, _response, next) => {
+  try {
+    const project = await ProjectModel.findOne({ _id: request.params.id, publicationStatus: 'published' }).select('privateFiles').lean()
+    if (!project) throw new AppError(404, 'Project not found', 'PROJECT_NOT_FOUND')
+    const hasPurchase = await OrderModel.exists({ user: request.auth?.userId, status: 'paid', 'lineItems.project': project._id })
+    if (!hasPurchase) throw new AppError(403, 'A paid purchase is required to download this project', 'PURCHASE_REQUIRED')
+    throw new AppError(501, 'Project storage is not configured', 'DOWNLOAD_STORAGE_NOT_CONFIGURED')
+  } catch (error) { next(error) }
 }

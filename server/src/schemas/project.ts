@@ -1,4 +1,8 @@
 import { z } from 'zod'
 
 export const projectQuerySchema = z.object({ search: z.string().trim().max(100).optional(), category: z.string().trim().max(100).optional(), page: z.coerce.number().int().positive().default(1), limit: z.coerce.number().int().positive().max(50).default(20) })
-export const projectInputSchema = z.object({ title: z.string().trim().min(3).max(160), slug: z.string().trim().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/), description: z.string().trim().min(10).max(10000), category: z.string().trim().min(2).max(100), technologies: z.array(z.string().trim().min(1).max(50)).max(20), price: z.number().nonnegative().max(10000000), thumbnailUrl: z.string().url().optional(), compatibility: z.array(z.string().trim().max(100)).max(20).default([]), kitContents: z.array(z.string().trim().max(200)).max(30).default([]) })
+export const projectInputSchema = z.object({ title: z.string().trim().min(3).max(160), slug: z.string().trim().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/), description: z.string().trim().min(10).max(10000), category: z.string().trim().min(2).max(100), technologies: z.array(z.string().trim().min(1).max(50)).max(20), price: z.number().int().nonnegative().max(10000000), currency: z.literal('INR').default('INR'), thumbnailUrl: z.string().url().optional(), compatibility: z.array(z.string().trim().max(100)).max(20).default([]), kitContents: z.array(z.string().trim().max(200)).max(30).default([]) })
+export const projectUpdateSchema = projectInputSchema.partial()
+export const projectAdminQuerySchema = projectQuerySchema.extend({ status: z.enum(['draft', 'published', 'archived']).optional() })
+export const fileMetadataSchema = z.object({ key: z.string().trim().min(1).max(500), filename: z.string().trim().min(1).max(200), contentType: z.string().trim().max(120).optional(), sizeBytes: z.number().int().nonnegative().max(500000000).optional() })
+export const projectIdSchema = z.object({ id: z.string().regex(/^[a-f\d]{24}$/i) })
