@@ -1,7 +1,6 @@
 @import "tailwindcss";
 
-:root { --page-bg: #0b0d18; --text-primary: #e2e8f0; --text-muted: #718096; --surface: rgba(18,21,37,.74); --surface-strong: #15192a; --line: rgba(255,255,255,.08); --brand-cyan: #67e8f9; --brand-violet: #a78bfa; font-family: "Space Grotesk", "Avenir Next", sans-serif; color: var(--text-primary); background: var(--page-bg); font-synthesis: none; text-rendering: optimizeLegibility; -webkit-font-smoothing: antialiased; }
-:root[data-theme='light'] { --page-bg: #f5f7fb; --text-primary: #172033; --text-muted: #5f6b7d; --surface: rgba(255,255,255,.86); --surface-strong: #ffffff; --line: rgba(23,32,51,.12); --brand-cyan: #0891b2; --brand-violet: #6d4cc2; color-scheme: light; }
+:root { --page-bg: #0b0d18; --text-primary: #e2e8f0; --text-muted: #718096; --surface: rgba(18,21,37,.74); --surface-strong: #15192a; --line: rgba(255,255,255,.08); --brand-cyan: #67e8f9; --brand-violet: #a78bfa; font-family: "Space Grotesk", "Avenir Next", sans-serif; color: var(--text-primary); background: var(--page-bg); color-scheme: dark; font-synthesis: none; text-rendering: optimizeLegibility; -webkit-font-smoothing: antialiased; }
 * { box-sizing: border-box; }
 html { scroll-behavior: smooth; }
 body { margin: 0; min-width: 320px; }

@@ -1,0 +1,9 @@
+import { useEffect, useRef } from 'react'
+import { LogOut, X } from 'lucide-react'
+import { AnimatePresence, motion } from 'motion/react'
+
+export function LogoutModal({ open, busy, onCancel, onConfirm }: { open: boolean; busy: boolean; onCancel: () => void; onConfirm: () => void }) {
+  const cancelRef = useRef<HTMLButtonElement>(null)
+  useEffect(() => { if (!open) return; cancelRef.current?.focus(); const closeOnEscape = (event: KeyboardEvent) => { if (event.key === 'Escape' && !busy) onCancel() }; document.addEventListener('keydown', closeOnEscape); return () => document.removeEventListener('keydown', closeOnEscape) }, [open, busy, onCancel])
+  return <AnimatePresence>{open && <motion.div className="modal-backdrop" role="presentation" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onMouseDown={(event) => { if (event.target === event.currentTarget && !busy) onCancel() }}><motion.div className="confirm-modal" role="dialog" aria-modal="true" aria-labelledby="logout-title" initial={{ opacity: 0, y: 14, scale: .97 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 8, scale: .98 }}><button className="modal-close icon-button" onClick={onCancel} disabled={busy} aria-label="Close logout confirmation"><X size={17} /></button><div className="modal-icon"><LogOut size={20} /></div><p className="section-eyebrow">ACCOUNT</p><h2 id="logout-title">Ready to leave?</h2><p>Are you sure you want to log out of your OnlineProjects4U account?</p><div className="modal-actions"><button ref={cancelRef} className="secondary-button" onClick={onCancel} disabled={busy}>Stay Logged In</button><button className="primary-button" onClick={onConfirm} disabled={busy}><LogOut size={15} />{busy ? 'Logging out...' : 'Yes, Log Out'}</button></div></motion.div></motion.div>}</AnimatePresence>
+}
