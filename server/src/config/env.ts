@@ -12,6 +12,7 @@ const envSchema = z.object({
   JWT_EXPIRES_IN: z.string().default('15m'),
   SESSION_TTL_DAYS: z.coerce.number().int().positive().default(7),
   COOKIE_SECURE: z.enum(['true', 'false']).default('false').transform((value) => value === 'true'),
+  SESSION_COOKIE_DOMAIN: z.preprocess((value) => value === '' ? undefined : value, z.string().optional()),
   PASSWORD_RESET_URL: z.string().url().default('http://localhost:5173/reset-password'),
   GOOGLE_CLIENT_ID: z.string().optional(),
   GOOGLE_CLIENT_SECRET: z.string().optional(),

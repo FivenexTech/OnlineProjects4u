@@ -3,12 +3,12 @@ import jwt from 'jsonwebtoken'
 import { env } from '../config/env.js'
 import type { UserRole } from '../models/user.js'
 import { AppError } from './errors.js'
-import { findSession, sessionCookieName } from '../services/sessions.js'
+import { expiredSessionCookie, findSession, sessionCookieName } from '../services/sessions.js'
 
 type TokenPayload = { sub: string; role: UserRole }
-export const requireAuth: RequestHandler = async (request, _response, next) => {
+export const requireAuth: RequestHandler = async (request, response, next) => {
   const cookie = request.header('cookie')?.split(';').map((item) => item.trim()).find((item) => item.startsWith(`${sessionCookieName}=`))?.slice(sessionCookieName.length + 1)
-  if (cookie) { const session = await findSession(cookie); if (session) { const user = await (await import('../models/user.js')).UserModel.findById(session.user); if (user) { request.auth = { userId: user.id, role: user.role, sessionId: session.id }; return next() } } }
+  if (cookie) { const session = await findSession(cookie); if (session) { const user = await (await import('../models/user.js')).UserModel.findById(session.user); if (user) { request.auth = { userId: user.id, role: user.role, sessionId: session.id }; return next() } } response.setHeader('Set-Cookie', expiredSessionCookie()) }
   const header = request.header('authorization')
   if (!header?.startsWith('Bearer ')) return next(new AppError(401, 'Authentication required', 'AUTH_REQUIRED'))
   try {

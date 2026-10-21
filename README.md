@@ -45,7 +45,7 @@ npm run dev
 
 The admin app runs on `http://localhost:5174` and reads `VITE_API_BASE_URL` from `admin/.env.local`. It shares the backend session cookie and never connects directly to MongoDB. The backend accepts this origin through `ADMIN_ORIGIN` (default `http://localhost:5174`).
 
-For an independent Vercel project, set the project root to `admin/`, use `npm install` as the install command, `npm run build` as the build command, and `dist` as the output directory. Set `VITE_API_BASE_URL` to the HTTPS backend URL. For the planned `admin.onlineprojects4u.in` domain, add the domain in Vercel and configure `ADMIN_ORIGIN=https://admin.onlineprojects4u.in` in the backend environment. Do not change DNS or deploy automatically from this repository.
+For an independent Vercel project, set the project root to `admin/`, use `npm install` as the install command, `npm run build` as the build command, and `dist` as the output directory. Set `VITE_API_BASE_URL` to the HTTPS backend URL. Set the customer deployment's `VITE_ADMIN_APP_URL` to `https://admin.onlineprojects4u.in`. For the planned `admin.onlineprojects4u.in` domain, add the domain in Vercel and configure `ADMIN_ORIGIN=https://admin.onlineprojects4u.in`, `CLIENT_ORIGIN=https://onlineprojects4u.in`, `COOKIE_SECURE=true`, and `SESSION_COOKIE_DOMAIN=.onlineprojects4u.in` in the backend environment. The shared cookie domain is what lets a session created by the customer login be restored by the separate admin app. Do not change DNS or deploy automatically from this repository.
 
 ## Validation
 

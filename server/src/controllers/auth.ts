@@ -7,7 +7,7 @@ import { AppError } from '../middleware/errors.js'
 import { OAuth2Client } from 'google-auth-library'
 import { randomBytes } from 'node:crypto'
 import { issueVerificationOtp, verifyEmailOtp } from '../services/email-verification.js'
-import { createSession, revokeSession, sessionCookie, sessionCookieName } from '../services/sessions.js'
+import { createSession, expiredSessionCookie, revokeSession, sessionCookie, sessionCookieName } from '../services/sessions.js'
 
 function issueToken(userId: string, role: 'student' | 'admin'): string { return jwt.sign({ role }, env.JWT_SECRET, { subject: userId, expiresIn: env.JWT_EXPIRES_IN as jwt.SignOptions['expiresIn'] }) }
 
@@ -67,8 +67,8 @@ export const verifyOtp: RequestHandler = async (request, response, next) => {
     let user = await UserModel.findOne({ email: request.body.email })
     if (!user) user = await UserModel.create({ name: request.body.email.split('@')[0].slice(0, 100), email: request.body.email, role: 'student', emailVerifiedAt: new Date() })
     else { user.emailVerifiedAt = new Date(); await user.save() }
-    const session = await createSession(user.id); response.setHeader('Set-Cookie', sessionCookie(session)); response.json({ data: { verified: true } })
+    const session = await createSession(user.id); response.setHeader('Set-Cookie', sessionCookie(session)); response.json({ data: { verified: true, user: { id: user.id, name: user.name, email: user.email, role: user.role, emailVerified: Boolean(user.emailVerifiedAt) } } })
   } catch (error) { next(error) }
 }
 
-export const logout: RequestHandler = async (request, response, next) => { try { const cookie = request.header('cookie')?.split(';').map((item) => item.trim()).find((item) => item.startsWith(`${sessionCookieName}=`))?.slice(sessionCookieName.length + 1); if (cookie) await revokeSession(cookie); response.setHeader('Set-Cookie', `${sessionCookieName}=; Max-Age=0; Path=/; HttpOnly; SameSite=Lax${env.COOKIE_SECURE ? '; Secure' : ''}`); response.status(204).send() } catch (error) { next(error) } }
+export const logout: RequestHandler = async (request, response, next) => { try { const cookie = request.header('cookie')?.split(';').map((item) => item.trim()).find((item) => item.startsWith(`${sessionCookieName}=`))?.slice(sessionCookieName.length + 1); if (cookie) await revokeSession(cookie); response.setHeader('Set-Cookie', expiredSessionCookie()); response.status(204).send() } catch (error) { next(error) } }

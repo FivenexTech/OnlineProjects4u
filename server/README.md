@@ -31,10 +31,13 @@ Do not send database credentials, connection strings, or passwords in chat or co
 - `NODE_ENV`: `development`, `test`, or `production`.
 - `PORT`: local API port, default `4000`.
 - `CLIENT_ORIGIN`: exact frontend origin allowed by CORS.
+- `ADMIN_ORIGIN`: exact admin frontend origin allowed by CORS.
 - `MONGODB_URI`: required Mongoose connection string.
 - `MONGODB_DNS_SERVERS`: optional comma-separated DNS servers used by Node's SRV resolver. On Windows, the app defaults to `8.8.8.8,8.8.4.4` for the Atlas `mongodb+srv` resolver issue diagnosed here. Override it for a corporate/VPN DNS server or set it empty to use the platform default.
 - `JWT_SECRET`: required secret with at least 32 characters.
 - `JWT_EXPIRES_IN`: bearer token lifetime, default `15m`.
+- `COOKIE_SECURE`: set to `true` in production HTTPS deployments.
+- `SESSION_COOKIE_DOMAIN`: optional cookie domain; set to `.onlineprojects4u.in` in production so the customer and admin subdomains share the authenticated session. Leave it empty for local development.
 - `PASSWORD_RESET_URL`: frontend reset route placeholder.
 - `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REDIRECT_URI`: Google Cloud OAuth placeholders. The server verifies Google ID tokens against the configured client ID.
 - `RESEND_API_KEY`: server-only Resend API key. Leave it empty for local development without email delivery; OTP requests then fail closed without exposing secrets.
