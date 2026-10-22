@@ -8,6 +8,8 @@ import { OAuth2Client } from 'google-auth-library'
 import { randomBytes } from 'node:crypto'
 import { issueVerificationOtp, verifyEmailOtp } from '../services/email-verification.js'
 import { createSession, expiredSessionCookie, revokeSession, sessionCookie, sessionCookieName } from '../services/sessions.js'
+import { authDiagnostic } from '../services/auth-diagnostics.js'
+import { isAuthorizedAdminEmail, normalizeEmail } from '../services/email-identity.js'
 
 function issueToken(userId: string, role: 'student' | 'admin'): string { return jwt.sign({ role }, env.JWT_SECRET, { subject: userId, expiresIn: env.JWT_EXPIRES_IN as jwt.SignOptions['expiresIn'] }) }
 
@@ -30,7 +32,7 @@ export const login: RequestHandler = async (request, response, next) => {
 }
 
 export const me: RequestHandler = async (request, response, next) => {
-  try { const user = await UserModel.findById(request.auth?.userId); if (!user) throw new AppError(404, 'Account not found', 'USER_NOT_FOUND'); response.json({ data: { id: user.id, name: user.name, email: user.email, phone: user.phone ?? '', role: user.role, emailVerified: Boolean(user.emailVerifiedAt), createdAt: user.createdAt } }) } catch (error) { next(error) }
+  try { const user = await UserModel.findById(request.auth?.userId); const adminAuthorized = Boolean(user && user.role === 'admin' && isAuthorizedAdminEmail(user.email)); authDiagnostic('me', { endpoint: request.path, accountFound: Boolean(user), role: user?.role ?? null, emailVerified: Boolean(user?.emailVerifiedAt), allowed: Boolean(user) && (user?.role !== 'admin' || adminAuthorized) }); if (!user) throw new AppError(404, 'Account not found', 'USER_NOT_FOUND'); response.json({ data: { id: user.id, name: user.name, email: user.email, phone: user.phone ?? '', role: user.role, adminAuthorized, emailVerified: Boolean(user.emailVerifiedAt), createdAt: user.createdAt } }) } catch (error) { next(error) }
 }
 
 export const updateMe: RequestHandler = async (request, response, next) => {
@@ -52,8 +54,13 @@ export const googleLogin: RequestHandler = async (request, response, next) => {
 
 export const requestOtp: RequestHandler = async (request, response, next) => {
   try {
-    const user = await UserModel.findOne({ email: request.body.email })
-    await issueVerificationOtp(user?.id, request.body.email)
+    const email = normalizeEmail(request.body.email)
+    const purpose = request.body.purpose === 'admin_login' ? 'admin_login' : request.path.endsWith('/login') || request.body.purpose === 'login' ? 'login' : 'email_verification'
+    const adminEmailAllowed = purpose !== 'admin_login' || isAuthorizedAdminEmail(email)
+    if (!adminEmailAllowed) throw new AppError(403, 'This email is not authorized for admin access', 'ADMIN_EMAIL_NOT_ALLOWED')
+    const user = await UserModel.findOne({ email })
+    authDiagnostic('request', { endpoint: request.path, accountFound: Boolean(user), role: user?.role ?? null, emailVerified: Boolean(user?.emailVerifiedAt), allowed: adminEmailAllowed })
+    await issueVerificationOtp(user?.id, email, purpose)
     response.status(202).json({ data: { message: 'If verification is required, a code has been sent.' } })
   } catch (error) {
     if (error instanceof AppError && error.code === 'OTP_COOLDOWN') return response.status(202).json({ data: { message: 'If verification is required, a code has been sent.' } })
@@ -63,10 +70,18 @@ export const requestOtp: RequestHandler = async (request, response, next) => {
 
 export const verifyOtp: RequestHandler = async (request, response, next) => {
   try {
-    await verifyEmailOtp(request.body.email, request.body.code)
-    let user = await UserModel.findOne({ email: request.body.email })
-    if (!user) user = await UserModel.create({ name: request.body.email.split('@')[0].slice(0, 100), email: request.body.email, role: 'student', emailVerifiedAt: new Date() })
+    const email = normalizeEmail(request.body.email)
+    const purpose = request.body.purpose === 'admin_login' ? 'admin_login' : 'email_verification'
+    if (purpose === 'admin_login' && !isAuthorizedAdminEmail(email)) throw new AppError(403, 'This email is not authorized for admin access', 'ADMIN_EMAIL_NOT_ALLOWED')
+    await verifyEmailOtp(email, request.body.code, purpose)
+    let user = await UserModel.findOne({ email })
+    if (purpose === 'admin_login' && (!user || user.role !== 'admin' || !isAuthorizedAdminEmail(user.email))) {
+      authDiagnostic('otp-verify', { endpoint: request.path, accountFound: Boolean(user), role: user?.role ?? null, emailVerified: Boolean(user?.emailVerifiedAt), allowed: false })
+      throw new AppError(403, 'This administrator account is not provisioned', 'ADMIN_NOT_PROVISIONED')
+    }
+    if (!user) user = await UserModel.create({ name: email.split('@')[0].slice(0, 100), email, role: 'student', emailVerifiedAt: new Date() })
     else { user.emailVerifiedAt = new Date(); await user.save() }
+    authDiagnostic('otp-verify', { endpoint: request.path, accountFound: true, role: user.role, emailVerified: Boolean(user.emailVerifiedAt), allowed: purpose !== 'admin_login' || (user.role === 'admin' && isAuthorizedAdminEmail(user.email)) })
     const session = await createSession(user.id); response.setHeader('Set-Cookie', sessionCookie(session)); response.json({ data: { verified: true, user: { id: user.id, name: user.name, email: user.email, role: user.role, emailVerified: Boolean(user.emailVerifiedAt) } } })
   } catch (error) { next(error) }
 }

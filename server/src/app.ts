@@ -9,19 +9,23 @@ import { authRouter } from './routes/auth.js'
 import { commerceRouter } from './routes/commerce.js'
 import { healthRouter } from './routes/health.js'
 import { projectsRouter } from './routes/projects.js'
+import { reviewsRouter } from './routes/reviews.js'
 import { supportRouter } from './routes/support.js'
 import { customProjectRequestsRouter } from './routes/custom-project-requests.js'
+import { paymentWebhook } from './controllers/commerce.js'
 
 export function createApp() {
   const app = express()
   app.disable('x-powered-by')
   app.use(helmet())
   app.use(cors({ origin: [env.CLIENT_ORIGIN, env.ADMIN_ORIGIN], credentials: true, methods: ['GET', 'POST', 'PATCH', 'DELETE'], allowedHeaders: ['Content-Type', 'Authorization'] }))
+  app.post('/api/payments/webhook', express.raw({ type: 'application/json', limit: '100kb' }), paymentWebhook)
   app.use(express.json({ limit: '100kb' }))
   app.use(pinoHttp({ redact: ['req.headers.authorization', 'req.headers.cookie'] }))
   app.use('/api/health', healthRouter)
   app.use('/api/auth', authRouter)
   app.use('/api/projects', projectsRouter)
+  app.use('/api/reviews', reviewsRouter)
   app.use('/api/support', supportRouter)
   app.use('/api/project-requests', customProjectRequestsRouter)
   app.use('/api', commerceRouter)

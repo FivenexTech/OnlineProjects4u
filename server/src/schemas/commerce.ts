@@ -1,9 +1,11 @@
 import { z } from 'zod'
 
 const objectId = z.string().regex(/^[a-f\d]{24}$/i, 'Expected a MongoDB id')
+const projectReference = z.string().trim().regex(/^(?:[a-f\d]{24}|[a-z0-9]+(?:-[a-z0-9]+)*)$/i, 'Expected a project id or slug')
 
-export const createOrderSchema = z.object({ projectIds: z.array(objectId).min(1).max(20).refine((ids) => new Set(ids).size === ids.length, 'Duplicate projects are not allowed'), couponCode: z.string().trim().toUpperCase().min(3).max(40).optional() })
+export const createOrderSchema = z.object({ projectIds: z.array(projectReference).min(1).max(20).refine((ids) => new Set(ids).size === ids.length, 'Duplicate projects are not allowed'), couponCode: z.string().trim().toUpperCase().min(3).max(40).optional() })
 export const createPaymentSchema = z.object({ orderId: objectId })
+export const verifyPaymentSchema = z.object({ razorpayPaymentId: z.string().trim().min(1).max(100), razorpayOrderId: z.string().trim().min(1).max(100), razorpaySignature: z.string().trim().regex(/^[a-f\d]{64}$/i) })
 export const orderAdminQuerySchema = z.object({ status: z.enum(['pending', 'paid', 'cancelled', 'refunded']).optional(), page: z.coerce.number().int().positive().default(1), limit: z.coerce.number().int().positive().max(100).default(50) })
 
 const couponFields = z.object({

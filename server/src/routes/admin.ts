@@ -11,6 +11,9 @@ import { validateBody } from '../middleware/validation.js'
 import { couponInputSchema, couponStatusSchema, couponUpdateSchema } from '../schemas/commerce.js'
 import { fileMetadataSchema, projectInputSchema, projectUpdateSchema } from '../schemas/project.js'
 import { supportTicketStatusSchema } from '../schemas/support.js'
+import { listAdminPayments } from '../controllers/admin-payments.js'
+import { getSettings, listAdminReviews, listAuditLogs, moderateReview, reports, updateSettings } from '../controllers/admin-modules.js'
+import { platformSettingsSchema, reviewStatusSchema } from '../schemas/admin-modules.js'
 
 export const adminRouter = Router()
 adminRouter.use(requireAuth, requireRole('admin'))
@@ -22,6 +25,7 @@ adminRouter.patch('/projects/:id', validateBody(projectUpdateSchema), updateAdmi
 adminRouter.post('/projects/:id/:action', transitionAdminProject)
 adminRouter.post('/projects/:id/files', validateBody(fileMetadataSchema), updateProjectFiles)
 adminRouter.get('/orders', listAdminOrders)
+adminRouter.get('/payments', listAdminPayments)
 adminRouter.get('/coupons', listAdminCoupons)
 adminRouter.post('/coupons', validateBody(couponInputSchema), createAdminCoupon)
 adminRouter.patch('/coupons/:id', validateBody(couponUpdateSchema), updateAdminCoupon)
@@ -30,3 +34,9 @@ adminRouter.delete('/coupons/:id', deleteAdminCoupon)
 adminRouter.get('/users', listAdminCustomers)
 adminRouter.get('/support', listAdminSupportTickets)
 adminRouter.patch('/support/:id', validateBody(supportTicketStatusSchema), updateAdminSupportTicket)
+adminRouter.get('/reviews', listAdminReviews)
+adminRouter.patch('/reviews/:id/status', validateBody(reviewStatusSchema), moderateReview)
+adminRouter.get('/reports', reports)
+adminRouter.get('/audit-logs', listAuditLogs)
+adminRouter.get('/settings', getSettings)
+adminRouter.patch('/settings', validateBody(platformSettingsSchema), updateSettings)

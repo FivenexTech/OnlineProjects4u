@@ -11,15 +11,18 @@ const projectFind = vi.hoisted(() => vi.fn())
 const paymentFindOne = vi.hoisted(() => vi.fn())
 const paymentCreate = vi.hoisted(() => vi.fn())
 const startSession = vi.hoisted(() => vi.fn(async () => ({ withTransaction: async (callback: () => Promise<void>) => callback(), endSession: vi.fn() })))
+const createRazorpayOrder = vi.hoisted(() => vi.fn())
+const razorpayKeyId = vi.hoisted(() => vi.fn(() => 'rzp_test_public'))
 
 vi.mock('mongoose', async (importOriginal) => {
   const actual = await importOriginal<typeof import('mongoose')>()
   return { ...actual, default: { ...actual.default, startSession } }
 })
-vi.mock('../src/models/order.js', () => ({ OrderModel: { find: orderFind, create: orderCreate, findOne: orderFindOne, countDocuments: orderCountDocuments, exists: vi.fn() } }))
+vi.mock('../src/models/order.js', () => ({ OrderModel: { find: orderFind, create: orderCreate, findOne: orderFindOne, updateOne: vi.fn(), countDocuments: orderCountDocuments, exists: vi.fn() } }))
 vi.mock('../src/models/project.js', () => ({ ProjectModel: { find: projectFind, findOne: vi.fn() } }))
 vi.mock('../src/models/payment.js', () => ({ PaymentModel: { findOne: paymentFindOne, create: paymentCreate } }))
 vi.mock('../src/models/audit-log.js', () => ({ AuditLogModel: { create: vi.fn().mockResolvedValue(undefined) } }))
+vi.mock('../src/services/razorpay.js', () => ({ createRazorpayOrder, razorpayKeyId, fetchRazorpayPayment: vi.fn(), verifyRazorpaySignature: vi.fn(), verifyWebhookSignature: vi.fn(() => false) }))
 
 import { createApp } from '../src/app.js'
 
@@ -32,6 +35,7 @@ describe('orders and payments', () => {
     vi.clearAllMocks()
     orderFind.mockReturnValue({ sort: () => ({ lean: () => Promise.resolve([{ id: 'order-1', status: 'pending' }]) }) })
     orderCountDocuments.mockResolvedValue(0)
+    createRazorpayOrder.mockResolvedValue({ id: 'rzp-order-1', amount: 120000, currency: 'INR' })
   })
 
   it('rejects commerce access without authentication', async () => {
@@ -47,8 +51,8 @@ describe('orders and payments', () => {
     expect(orderFind).toHaveBeenCalledWith({ user: 'student-test-id' })
   })
 
-  it('validates order ids before reaching the database', async () => {
-    const response = await request(createApp()).post('/api/orders').set('Authorization', `Bearer ${token()}`).send({ projectIds: ['not-an-object-id'] })
+  it('validates malformed project references before reaching the database', async () => {
+    const response = await request(createApp()).post('/api/orders').set('Authorization', `Bearer ${token()}`).send({ projectIds: ['not a valid project'] })
     expect(response.status).toBe(400)
     expect(response.body.error.code).toBe('VALIDATION_ERROR')
     expect(projectFind).not.toHaveBeenCalled()
@@ -69,14 +73,15 @@ describe('orders and payments', () => {
     paymentCreate.mockResolvedValue({ id: 'payment-1', status: 'created' })
     const response = await request(createApp()).post('/api/payments/create').set('Authorization', `Bearer ${token()}`).send({ orderId: '507f1f77bcf86cd799439011' })
     expect(response.status).toBe(201)
-    expect(response.body.data.status).toBe('created')
+    expect(response.body.data.payment.status).toBe('created')
+    expect(response.body.data.razorpayOrderId).toBe('rzp-order-1')
     expect(paymentCreate).toHaveBeenCalledWith(expect.objectContaining({ provider: 'razorpay', status: 'created', amount: 1200 }))
   })
 
-  it('does not claim payment success while Razorpay is deferred', async () => {
+  it('rejects an invalid Razorpay webhook signature', async () => {
     const response = await request(createApp()).post('/api/payments/webhook').set('Authorization', `Bearer ${token()}`).send({ event: 'payment.captured' })
-    expect(response.status).toBe(501)
-    expect(response.body.error.code).toBe('RAZORPAY_NOT_CONFIGURED')
+    expect(response.status).toBe(400)
+    expect(response.body.error.code).toBe('WEBHOOK_SIGNATURE_INVALID')
     expect(paymentCreate).not.toHaveBeenCalled()
   })
 

@@ -1,2 +1,1 @@
 export const apiBaseUrl = (import.meta.env.VITE_API_URL as string | undefined)?.replace(/\/$/, '') ?? ''
-export const adminAppUrl = ((import.meta.env.VITE_ADMIN_APP_URL as string | undefined) || 'http://localhost:5174').replace(/\/$/, '')
